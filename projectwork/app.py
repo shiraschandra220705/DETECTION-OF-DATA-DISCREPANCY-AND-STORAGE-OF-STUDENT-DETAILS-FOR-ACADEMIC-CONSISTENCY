@@ -33,11 +33,13 @@ def greetsession():
     data = request.get_json()
     usn = data.get('usn')
     cgpa = data.get('cgpa')
-    grade = data.get('grade')
+    tenthmarks = data.get('tenthmarks')
+    pucmarks = data.get('pucmarks')
     dob = data.get('dob')
     session["usn"] = usn
     session["cgpa"] = cgpa
-    session["grade"] = grade
+    session["tenthmarks"] = tenthmarks
+    session["pucmarks"] = pucmarks
     session["dob"] = dob
     return jsonify({"status": "success", "redirect": "/greet"})
 
@@ -46,8 +48,9 @@ def greet():
     name = session.get("name")
     usn = session.get("usn")
     cgpa = session.get("cgpa")
-    grade = session.get("grade")
+    tenthmarks = session.get("tenthmarks")
+    pucmarks = session.get("pucmarks")
     dob = session.get("dob")
-    return render_template("greet.html", name = name,usn = usn, cgpa = cgpa, grade = grade, dob = dob)
+    return render_template("greet.html", name=name, usn=usn, cgpa=cgpa, tenthmarks=tenthmarks, pucmarks=pucmarks, dob=dob)
 
     

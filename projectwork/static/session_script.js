@@ -8,7 +8,8 @@ const fields = {
   phone: document.querySelector("#phone"),
   dob: document.querySelector("#dob"),
   cgpa: document.querySelector("#cgpa"),
-  grade: document.querySelector("#grade"),
+  tenthmarks: document.querySelector("#tenthmarks"),
+  pucmarks: document.querySelector("#pucmarks"),
 };
 
 const errors = {
@@ -17,7 +18,8 @@ const errors = {
   phone: document.querySelector("#phone-error"),
   dob: document.querySelector("#dob-error"),
   cgpa: document.querySelector("#cgpa-error"),
-  grade: document.querySelector("#grade-error"),
+  tenthmarks: document.querySelector("#tenthmarks-error"),
+  pucmarks: document.querySelector("#pucmarks-error"),
 };
 
 fields.dob.max = new Date().toISOString().split("T")[0];
@@ -37,7 +39,8 @@ function validate() {
     phone: fields.phone.value.trim(),
     dob: fields.dob.value,
     cgpa: Number(fields.cgpa.value),
-    grade: fields.grade.value.trim().toUpperCase(),
+    tenthmarks: fields.tenthmarks.value.trim(),
+    pucmarks: fields.pucmarks.value.trim(),
   };
 
   Object.keys(errors).forEach((fieldName) => setError(fieldName, ""));
@@ -73,8 +76,13 @@ function validate() {
     valid = false;
   }
 
-  if (!/^[A-F]$/.test(values.grade)) {
-    setError("grade", "Enter one grade from A to F.");
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(values[tenthmarks])) {
+    setError("tenthmarks", "Enter valid marks (e.g., 95.5).");
+    valid = false;
+  }
+
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(values[pucmarks])) {
+    setError("pucmarks", "Enter valid marks (e.g., 88.75).");
     valid = false;
   }
 
@@ -83,10 +91,12 @@ function validate() {
 
 function showSuccess(values) {
   const payload = {
-                grade: values.grade,
+                tenthmarks: values[tenthmarks],
+                pucmarks: values[pucmarks],
                 cgpa: values.cgpa,
                 dob: values.dob,
-                usn: values.usn
+                usn: values.usn,
+                name: values.name
             };
       fetch('/greetsession', {
                 method: 'POST',
