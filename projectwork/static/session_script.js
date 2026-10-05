@@ -76,12 +76,12 @@ function validate() {
     valid = false;
   }
 
-  if (!/^\d{1,3}(\.\d{1,2})?$/.test(values[tenthmarks])) {
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(values.tenthmarks)) {
     setError("tenthmarks", "Enter valid marks (e.g., 95.5).");
     valid = false;
   }
 
-  if (!/^\d{1,3}(\.\d{1,2})?$/.test(values[pucmarks])) {
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(values.pucmarks)) {
     setError("pucmarks", "Enter valid marks (e.g., 88.75).");
     valid = false;
   }
@@ -91,8 +91,8 @@ function validate() {
 
 function showSuccess(values) {
   const payload = {
-                tenthmarks: values[tenthmarks],
-                pucmarks: values[pucmarks],
+                tenthmarks: values.tenthmarks,
+                pucmarks: values.pucmarks,
                 cgpa: values.cgpa,
                 dob: values.dob,
                 usn: values.usn,
@@ -142,6 +142,6 @@ form.addEventListener("submit", (event) => {
   showSuccess(values);
 });
 
-fields.grade.addEventListener("input", () => {
-  fields.grade.value = fields.grade.value.toUpperCase();
+fields.usn.addEventListener("input", () => {
+  fields.usn.value = fields.usn.value.toUpperCase();
 });
