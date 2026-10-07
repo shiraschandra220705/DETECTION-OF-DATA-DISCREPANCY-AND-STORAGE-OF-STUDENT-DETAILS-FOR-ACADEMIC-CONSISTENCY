@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Log in to SecuroServ" />
+    <title>SecuroServ | Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand" href="/" aria-label="SecuroServ home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 9.5 12 5l8 4.5L12 14 4 9.5Z" />
+              <path d="M7 11.2V16c2.7 2 7.3 2 10 0v-4.8" />
+              <path d="M20 10v5" />
+            </svg>
+          </span>
+          <span>SecuroServ</span>
+        </a>
+      </header>
+
+      <main class="signup-main">
+        <section class="form-card signup-card" aria-labelledby="login-title">
+          <h1 id="login-title">Login</h1>
+
+          <form id="login-form">
+            <div class="field">
+              <label for="username">Username</label>
+              <div class="input-wrap">
+                <input id="username" name="username" type="text" autocomplete="username" placeholder="Username" required />
+              </div>
+            </div>
+
+            <div class="field signup-password">
+              <label for="password">Password</label>
+              <div class="input-wrap">
+                <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" required />
+              </div>
+            </div>
+
+            <button type="submit" class="signup-submit">Login <span aria-hidden="true">→</span></button>
+            <a class="login-signup" href="/signup">Sign up</a>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='login.js') }}"></script>
+  </body>
+</html>

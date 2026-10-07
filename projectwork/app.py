@@ -7,7 +7,11 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
 @app.route("/")
-def index():    
+def login_page():
+    return render_template("login.html")
+
+@app.route("/signup")
+def index():
     return render_template("index.html")
 
 @app.route("/greettree", methods = ["POST"])

@@ -529,3 +529,17 @@ button:focus-visible {
     padding-bottom: 24px;
   }
 }
+
+.welcome-heading {
+  margin-top: 10px;
+  font-size: 32px;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+
+.details-subtitle {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
