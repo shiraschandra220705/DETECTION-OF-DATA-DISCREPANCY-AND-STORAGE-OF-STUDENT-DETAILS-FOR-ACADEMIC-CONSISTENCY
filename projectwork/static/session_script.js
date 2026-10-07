@@ -113,6 +113,10 @@ function showSuccess(values) {
                 cgpa: values.cgpa,
                 dob: values.dob,
                 usn: values.usn,
+                phone: values.phone,
+                college: values.college,
+                branch: values.branch,
+                semester: Number(values.semester),
             };
       fetch('/greetsession', {
                 method: 'POST',

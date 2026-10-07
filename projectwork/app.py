@@ -36,25 +36,37 @@ def session_page():
 def greetsession():
     data = request.get_json()
     usn = data.get('usn')
+    phone = data.get('phone')
     cgpa = data.get('cgpa')
     tenthmarks = data.get('tenthmarks')
     pucmarks = data.get('pucmarks')
     dob = data.get('dob')
+    college = data.get('college')
+    branch = data.get('branch')
+    semester = data.get('semester')
     session["usn"] = usn
+    session["phone"] = phone
     session["cgpa"] = cgpa
     session["tenthmarks"] = tenthmarks
     session["pucmarks"] = pucmarks
     session["dob"] = dob
+    session["college"] = college
+    session["branch"] = branch
+    session["semester"] = semester
     return jsonify({"status": "success", "redirect": "/greet"})
 
 @app.route("/greet")
 def greet():
     name = session.get("name")
     usn = session.get("usn")
+    phone = session.get("phone")
     cgpa = session.get("cgpa")
     tenthmarks = session.get("tenthmarks")
     pucmarks = session.get("pucmarks")
     dob = session.get("dob")
-    return render_template("greet.html", name=name, usn=usn, cgpa=cgpa, tenthmarks=tenthmarks, pucmarks=pucmarks, dob=dob)
+    college = session.get("college")
+    branch = session.get("branch")
+    semester = session.get("semester")
+    return render_template("greet.html", name=name, usn=usn, phone=phone, cgpa=cgpa, tenthmarks=tenthmarks, pucmarks=pucmarks, dob=dob, college=college, branch=branch, semester=semester)
 
     
