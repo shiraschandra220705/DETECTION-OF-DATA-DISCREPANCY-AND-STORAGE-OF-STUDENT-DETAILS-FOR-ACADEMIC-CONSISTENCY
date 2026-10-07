@@ -12,7 +12,6 @@ const fields = {
   college: document.querySelector("#college"),
   branch: document.querySelector("#branch"),
   semester: document.querySelector("#semester"),
-  email: document.querySelector("#email"),
 };
 
 const errors = {
@@ -25,7 +24,6 @@ const errors = {
   college: document.querySelector("#college-error"),
   branch: document.querySelector("#branch-error"),
   semester: document.querySelector("#semester-error"),
-  email: document.querySelector("#email-error"),
 };
 
 fields.dob.max = new Date().toISOString().split("T")[0];
@@ -49,7 +47,6 @@ function validate() {
     college: fields.college.value.trim(),
     branch: fields.branch.value.trim(),
     semester: fields.semester.value.trim(),
-    email: fields.email.value.trim(),
   };
 
   Object.keys(errors).forEach((fieldName) => setError(fieldName, ""));
@@ -106,11 +103,6 @@ function validate() {
     valid = false;
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
-    setError("email", "Please enter a valid email address.");
-    valid = false;
-  }
-
   return { valid, values };
 }
 
@@ -121,6 +113,10 @@ function showSuccess(values) {
                 cgpa: values.cgpa,
                 dob: values.dob,
                 usn: values.usn,
+                phone: values.phone,
+                college: values.college,
+                branch: values.branch,
+                semester: Number(values.semester),
             };
       fetch('/greetsession', {
                 method: 'POST',
