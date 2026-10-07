@@ -9,6 +9,10 @@ const fields = {
   cgpa: document.querySelector("#cgpa"),
   tenthmarks: document.querySelector("#tenthmarks"),
   pucmarks: document.querySelector("#pucmarks"),
+  college: document.querySelector("#college"),
+  branch: document.querySelector("#branch"),
+  semester: document.querySelector("#semester"),
+  email: document.querySelector("#email"),
 };
 
 const errors = {
@@ -18,6 +22,10 @@ const errors = {
   cgpa: document.querySelector("#cgpa-error"),
   tenthmarks: document.querySelector("#tenthmarks-error"),
   pucmarks: document.querySelector("#pucmarks-error"),
+  college: document.querySelector("#college-error"),
+  branch: document.querySelector("#branch-error"),
+  semester: document.querySelector("#semester-error"),
+  email: document.querySelector("#email-error"),
 };
 
 fields.dob.max = new Date().toISOString().split("T")[0];
@@ -38,6 +46,10 @@ function validate() {
     cgpa: Number(fields.cgpa.value),
     tenthmarks: fields.tenthmarks.value.trim(),
     pucmarks: fields.pucmarks.value.trim(),
+    college: fields.college.value.trim(),
+    branch: fields.branch.value.trim(),
+    semester: fields.semester.value.trim(),
+    email: fields.email.value.trim(),
   };
 
   Object.keys(errors).forEach((fieldName) => setError(fieldName, ""));
@@ -75,6 +87,27 @@ function validate() {
 
   if (!/^\d{1,3}(\.\d{1,2})?$/.test(values.pucmarks)) {
     setError("pucmarks", "Enter valid marks (e.g., 88.75).");
+    valid = false;
+  }
+
+  if (values.college.length < 2) {
+    setError("college", "Please enter your college name.");
+    valid = false;
+  }
+
+  if (values.branch.length < 2) {
+    setError("branch", "Please enter your branch.");
+    valid = false;
+  }
+
+  const semester = Number(values.semester);
+  if (!values.semester || !Number.isInteger(semester) || semester < 1 || semester > 8) {
+    setError("semester", "Semester must be a whole number between 1 and 8.");
+    valid = false;
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+    setError("email", "Please enter a valid email address.");
     valid = false;
   }
 
