@@ -56,10 +56,13 @@ const form = document.getElementById("profileForm");
       } else {
         setError("username", "");
       }
-
       
-      setError("email", "");
-      
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError("email", "Please enter a valid email address.");
+        valid = false;
+      }else{
+        setError("email", "");
+      }
 
       if (
         passwordValue.length < 10 ||

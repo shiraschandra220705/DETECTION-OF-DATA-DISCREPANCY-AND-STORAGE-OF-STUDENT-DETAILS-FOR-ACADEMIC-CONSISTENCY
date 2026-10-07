@@ -12,7 +12,6 @@ const fields = {
   college: document.querySelector("#college"),
   branch: document.querySelector("#branch"),
   semester: document.querySelector("#semester"),
-  email: document.querySelector("#email"),
 };
 
 const errors = {
@@ -25,7 +24,6 @@ const errors = {
   college: document.querySelector("#college-error"),
   branch: document.querySelector("#branch-error"),
   semester: document.querySelector("#semester-error"),
-  email: document.querySelector("#email-error"),
 };
 
 fields.dob.max = new Date().toISOString().split("T")[0];
@@ -49,7 +47,6 @@ function validate() {
     college: fields.college.value.trim(),
     branch: fields.branch.value.trim(),
     semester: fields.semester.value.trim(),
-    email: fields.email.value.trim(),
   };
 
   Object.keys(errors).forEach((fieldName) => setError(fieldName, ""));
@@ -103,11 +100,6 @@ function validate() {
   const semester = Number(values.semester);
   if (!values.semester || !Number.isInteger(semester) || semester < 1 || semester > 8) {
     setError("semester", "Semester must be a whole number between 1 and 8.");
-    valid = false;
-  }
-
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
-    setError("email", "Please enter a valid email address.");
     valid = false;
   }
 
