@@ -3,7 +3,6 @@ const formCard = document.querySelector(".form-card");
 const originalFormMarkup = formCard.innerHTML;
 
 const fields = {
-  name: document.querySelector("#name"),
   usn: document.querySelector("#usn"),
   phone: document.querySelector("#phone"),
   dob: document.querySelector("#dob"),
@@ -13,7 +12,6 @@ const fields = {
 };
 
 const errors = {
-  name: document.querySelector("#name-error"),
   usn: document.querySelector("#usn-error"),
   phone: document.querySelector("#phone-error"),
   dob: document.querySelector("#dob-error"),
@@ -34,7 +32,6 @@ function setError(fieldName, message) {
 
 function validate() {
   const values = {
-    name: fields.name.value.trim(),
     usn: fields.usn.value.trim(),
     phone: fields.phone.value.trim(),
     dob: fields.dob.value,
@@ -46,11 +43,6 @@ function validate() {
   Object.keys(errors).forEach((fieldName) => setError(fieldName, ""));
 
   let valid = true;
-
-  if (values.name.length < 2) {
-    setError("name", "Please enter your name.");
-    valid = false;
-  }
 
   if (values.usn.length < 3) {
     setError("usn", "Please enter your USN.");
@@ -96,7 +88,6 @@ function showSuccess(values) {
                 cgpa: values.cgpa,
                 dob: values.dob,
                 usn: values.usn,
-                name: values.name
             };
       fetch('/greetsession', {
                 method: 'POST',
