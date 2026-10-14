@@ -34,9 +34,16 @@
 
           <form id="login-form">
             <div class="field">
-              <label for="username">Username</label>
+              <label for="email">Email</label>
               <div class="input-wrap">
-                <input id="username" name="username" type="text" autocomplete="username" placeholder="Username" required />
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autocomplete="email"
+                  placeholder="Email address"
+                  required
+                />
               </div>
             </div>
 
@@ -48,12 +55,12 @@
             </div>
 
             <button type="submit" class="signup-submit">Login <span aria-hidden="true">→</span></button>
+            <p id="login-status" role="alert" aria-live="polite"></p>
             <a class="login-signup" href="/signup">Sign up</a>
           </form>
         </section>
       </main>
     </div>
-
-    <script src="{{ url_for('static', filename='login.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='login.js') }}"></script>
   </body>
 </html>

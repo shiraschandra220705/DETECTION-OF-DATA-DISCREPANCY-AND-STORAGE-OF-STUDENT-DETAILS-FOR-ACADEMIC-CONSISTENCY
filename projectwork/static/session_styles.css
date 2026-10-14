@@ -543,3 +543,61 @@ button:focus-visible {
   font-size: 15px;
   line-height: 1.5;
 }
+
+
+/* Academic details display */
+#details-container .details-list {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(0, 1.2fr);
+  gap: 0;
+  margin: 18px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+#details-container .details-list dt,
+#details-container .details-list dd {
+  display: block;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 13px 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+#details-container .details-list dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+#details-container .details-list dd {
+  color: var(--ink);
+  text-align: left;
+}
+
+#details-container[hidden] {
+  display: none !important;
+}
+
+#view-details-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+@media (max-width: 420px) {
+  #details-container .details-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #details-container .details-list dt {
+    padding-bottom: 2px;
+    border-bottom: 0;
+  }
+
+  #details-container .details-list dd {
+    padding-top: 2px;
+  }
+}
