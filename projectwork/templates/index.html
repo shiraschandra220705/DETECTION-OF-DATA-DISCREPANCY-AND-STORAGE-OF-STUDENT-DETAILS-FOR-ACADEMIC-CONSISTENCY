@@ -54,7 +54,7 @@
           </p>
         </header>
 
-        <form id="profileForm" novalidate action = "/greet" method="post">
+        <form id="profileForm" novalidate>
           <div class="field-row">
             <div class="field">
               <label class="field-label" for="name">Full name</label>
@@ -66,21 +66,6 @@
                 autocomplete="name"
               />
               <p class="error" id="nameError"></p>
-            </div>
-
-            <div class="field">
-              <label class="field-label" for="username">
-                <span>Username</span>
-                <span class="field-hint">3–20 chars</span>
-              </label>
-              <input
-                class="field-input"
-                id="username"
-                type="text"
-                placeholder="ada_l"
-                autocomplete="username"
-              />
-              <p class="error" id="usernameError"></p>
             </div>
           </div>
 
@@ -132,16 +117,17 @@
           </label>
 
           <p class="error" id="agreementError"></p>
+          <p class="error" id="formError" role="alert"></p>
 
           <button class="submit-button" type="submit">
             Create profile
             <span>→</span>
           </button>
-            <script src = "/static/index_script.js"></script>
+            <script type="module" src="/static/index_script.js"></script>
         </form>
 
         <p class="form-footnote">
-          Your details stay yours. No backend connection in this demo.
+          Your account is protected by Firebase Authentication.
         </p>
       </div>
     </section>

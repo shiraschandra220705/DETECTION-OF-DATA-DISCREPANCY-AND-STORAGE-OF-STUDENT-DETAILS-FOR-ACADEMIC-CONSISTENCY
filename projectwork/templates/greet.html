@@ -1,15 +1,110 @@
 <!DOCTYPE html>
 <html lang="en">
-    <body>
-        hello, {{ name }}
-        your usn is {{ usn }}
-        your phone is {{ phone }}
-        your 10th marks is {{ tenthmarks }}
-        your puc marks is {{ pucmarks }}
-        your dob is {{ dob }}
-        your cgpa is {{ cgpa }}
-        your college is {{ college }}
-        your branch is {{ branch }}
-        your semester is {{ semester }}
-    </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Student academic record confirmation">
+    <title>Submission Successful | SecuroServ</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='session_styles.css') }}">
+</head>
+
+<body>
+    <div class="page-shell">
+
+        <header class="site-header">
+            <a class="brand" href="/session_page">
+                <span class="brand-mark">S</span>
+                <span>SecuroServ</span>
+            </a>
+            <span class="header-label">CAMPUS SERVICES / 01</span>
+        </header>
+
+        <main class="content-grid">
+
+            <section class="intro">
+                <div class="eyebrow">
+                    <span class="eyebrow-icon">
+                        <svg viewBox="0 0 24 24" fill="none"
+                             aria-hidden="true">
+                            <path d="m5 12 4 4L19 6"/>
+                        </svg>
+                    </span>
+                    <span>STUDENT RECORDS DESK</span>
+                </div>
+
+                <h1>Your details are submitted.</h1>
+
+                <p class="intro-copy">
+                    Thank you for completing the student details form.
+                    Your information has been saved in the academic
+                    records system.
+                </p>
+
+                <aside class="before-you-begin">
+                    <span class="mono-label">WHAT'S NEXT?</span>
+                    <p>
+                        You can view the academic details you submitted
+                        whenever you need them.
+                    </p>
+                </aside>
+            </section>
+
+            <section class="form-card success-card"
+                     aria-labelledby="success-title">
+
+                <div class="success-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                        <path d="m5 12 4 4L19 6"/>
+                    </svg>
+                </div>
+
+                <h2 id="success-title">
+                    Submission successful!
+                </h2>
+
+                <p>
+                    Thank you, {{ name }}. Your student record has
+                    been saved successfully.
+                </p>
+
+                <button type="button" id="view-details-btn">
+                    View My Details
+                    <span aria-hidden="true">→</span>
+                </button>
+
+                <p id="details-status"
+                   class="form-status"
+                   role="status"
+                   aria-live="polite"></p>
+
+                <div id="details-container" hidden>
+                    <div class="rule"></div>
+
+                    <h2>Your Academic Details</h2>
+
+                    <dl id="details-list" class="details-list"></dl>
+                </div>
+
+                <a class="header-action"
+                   href="/session_page"
+                   style="margin-top: 18px;">
+                    Back to student form
+                </a>
+
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <span>SecuroServ · Academic records intake</span>
+            <span class="footer-label">
+                A DEPENDABLE CAMPUS SERVICE
+            </span>
+        </footer>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='greet.js') }}"></script>
+</body>
 </html>
