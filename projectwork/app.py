@@ -95,21 +95,31 @@ def greettree():
 
 @app.route("/session_page")
 def session_page():
-    # Only authenticated users can access this page
+    # Only authenticated users can access this page.
     uid = session.get("uid")
-
     if not uid:
         return redirect("/")
 
-    # Pass only the authenticated user's identity to the template
-    user_name = session.get("name", "")
-    user_email = session.get("email", "")
+    try:
+        record_doc = db.collection("student_records").document(uid).get()
+        is_editing = request.args.get("edit") == "1"
 
-    return render_template(
-        "session.html",
-        name=user_name,
-        email=user_email
-    )
+        # Returning users go straight to their saved record unless they
+        # explicitly choose Edit Details.
+        if record_doc.exists and not is_editing:
+            return redirect("/greet")
+
+        details = record_doc.to_dict() if record_doc.exists else {}
+        return render_template(
+            "session.html",
+            name=session.get("name", ""),
+            email=session.get("email", ""),
+            details=details,
+            is_editing=is_editing and record_doc.exists
+        )
+    except Exception:
+        app.logger.exception("Failed to load student record for the form")
+        return "Could not load your student details. Please try again.", 500
 
 
 
@@ -229,7 +239,7 @@ def greet():
             tenthmarks=details.get("tenthmarks", ""),
             pucmarks=details.get("pucmarks", ""),
             dob=details.get("dob", ""),
-            college=details.get("college", ""),
+            college = "Dr. Ambedkar Institute of Technology",
             branch=details.get("branch", ""),
             semester=details.get("semester", "")
         )
