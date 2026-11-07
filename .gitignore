@@ -19,3 +19,14 @@ __pycache__/
 # Local development files
 .DS_Store
 Thumbs.db
+
+# Flask sessions, logs, certificates, and Firebase Admin credentials
+**/flask_session/
+*.log
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+**/firebase-adminsdk-*.json

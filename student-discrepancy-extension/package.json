@@ -1,0 +1,15 @@
+{
+  "name": "student-discrepancy-extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dependencies for the Student Data Discrepancy Detector browser extension.",
+  "scripts": {
+    "build": "esbuild popup/popup.js --bundle --format=iife --platform=browser --outfile=dist/popup.js"
+  },
+  "dependencies": {
+    "firebase": "^13.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
