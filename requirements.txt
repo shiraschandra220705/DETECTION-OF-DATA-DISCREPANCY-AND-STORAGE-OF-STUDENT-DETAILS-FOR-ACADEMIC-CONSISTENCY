@@ -2,3 +2,4 @@ Flask
 Flask-Session
 firebase-admin
 RapidFuzz
+python-dotenv

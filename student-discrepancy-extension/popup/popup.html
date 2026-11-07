@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Discrepancy Detector</title>
+
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h2>Student Discrepancy Detector</h2>
+
+        <p>
+            Student details from the active AcademicPortal profile.
+        </p>
+
+        <section class="auth-section" aria-labelledby="authHeading">
+            <h3 id="authHeading">Account</h3>
+
+            <form id="signInForm" class="auth-state auth-form" hidden>
+                <label for="emailInput">Email</label>
+                <input
+                    id="emailInput"
+                    name="email"
+                    type="email"
+                    autocomplete="username"
+                    required
+                >
+
+                <label for="passwordInput">Password</label>
+                <input
+                    id="passwordInput"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    required
+                >
+
+                <button id="signInButton" type="submit">Sign in</button>
+            </form>
+
+            <div id="signedInView" class="auth-state signed-in-view" hidden>
+                <p>Signed in as <strong id="signedInEmail"></strong></p>
+                <button id="signOutButton" class="secondary-button" type="button">
+                    Sign out
+                </button>
+            </div>
+
+            <div id="authStatusMessage" class="auth-status" role="status" aria-live="polite">
+                Checking sign-in status…
+            </div>
+        </section>
+
+        <section class="extract-section" aria-label="Student details">
+            <button id="checkButton" type="button">
+                Extract Student Details
+            </button>
+
+            <div id="statusMessage" role="status" aria-live="polite">
+                Ready to check student details.
+            </div>
+
+            <dl id="studentDetails" class="details" aria-label="Student details" hidden></dl>
+
+            <button id="compareButton" class="compare-button" type="button" disabled>
+                Compare Student Records
+            </button>
+
+            <div id="comparisonStatus" class="comparison-status" role="status" aria-live="polite">
+                Extract student details and sign in to compare records.
+            </div>
+
+            <section id="comparisonResult" class="comparison-result" aria-labelledby="comparisonHeading" hidden>
+                <h3 id="comparisonHeading">Comparison Result</h3>
+                <div id="comparisonSummary" class="comparison-summary"></div>
+                <div id="comparisonPairs" class="comparison-pairs"></div>
+            </section>
+        </section>
+
+    </div>
+
+    <script src="../dist/popup.js"></script>
+
+</body>
+</html>

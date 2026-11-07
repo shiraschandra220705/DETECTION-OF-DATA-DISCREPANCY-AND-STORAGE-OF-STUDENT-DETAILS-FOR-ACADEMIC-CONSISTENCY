@@ -1,0 +1,23 @@
+
+{
+  "manifest_version": 3,
+  "name": "Student Data Discrepancy Detector",
+  "version": "1.0.0",
+  "description": "Detects discrepancies in student academic information across academic websites.",
+
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "https://identitytoolkit.googleapis.com/*",
+    "https://securetoken.googleapis.com/*",
+    "https://127.0.0.1/*"
+  ],
+
+  "action": {
+    "default_title": "Student Discrepancy Detector",
+    "default_popup": "popup/popup.html"
+  }
+}

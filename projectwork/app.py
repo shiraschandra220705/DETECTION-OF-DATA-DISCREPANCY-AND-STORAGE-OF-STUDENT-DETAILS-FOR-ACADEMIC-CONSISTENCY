@@ -3,17 +3,24 @@ from flask_session import Session
 import firebase_admin
 from firebase_admin import firestore, auth 
 from google.cloud.firestore_v1.field_path import FieldPath
+from werkzeug.exceptions import RequestEntityTooLarge
 from collections.abc import Mapping
 import os
 
 try:
     # Supports launching as `flask --app projectwork.app ...` from repo root.
     from .model import match_student, normalize_usn
-    from .comparison import compare_registered_to_reference, compare_three_sources
+    from .comparison import (
+        compare_registered_to_reference, compare_external_to_reference,
+        compare_registered_to_external, compare_three_sources,
+    )
 except ImportError:
     # Supports launching from projectwork with `flask --app app ...`.
     from model import match_student, normalize_usn
-    from comparison import compare_registered_to_reference, compare_three_sources
+    from comparison import (
+        compare_registered_to_reference, compare_external_to_reference,
+        compare_registered_to_external, compare_three_sources,
+    )
 
 app = Flask(__name__)
 
@@ -59,6 +66,7 @@ REFERENCE_MATCH_FIELD_PATHS = tuple(
     FieldPath(field_name).to_api_repr() for field_name in REFERENCE_MATCH_FIELDS
 )
 MAX_REFERENCE_CANDIDATES = 100
+MAX_EXTENSION_REQUEST_BYTES = 16 * 1024
 EXTERNAL_STUDENT_FIELDS = frozenset({
     "usn", "USN",
     "name", "Name",
@@ -70,16 +78,76 @@ EXTERNAL_STUDENT_FIELDS = frozenset({
     "college", "College Name", "college_name",
     "branch", "Branch",
 })
+EXTENSION_FIELD_MAP = {
+    "USN": "USN",
+    "usn": "USN",
+    "Name": "Name",
+    "name": "Name",
+    "DOB": "DOB",
+    "dob": "DOB",
+    "date_of_birth": "DOB",
+    "CGPA": "CGPA",
+    "cgpa": "CGPA",
+    "Semester": "Semester",
+    "semester": "Semester",
+    "10th Grade": "10th Percentage",
+    "10th Percentage": "10th Percentage",
+    "10th_percentage": "10th Percentage",
+    "tenthmarks": "10th Percentage",
+    "12th Grade": "12th Percentage",
+    "12th Percentage": "12th Percentage",
+    "12th_percentage": "12th Percentage",
+    "pucmarks": "12th Percentage",
+    "College Name": "College Name",
+    "college": "College Name",
+    "college_name": "College Name",
+    "Branch": "Branch",
+    "branch": "Branch",
+    # Kept in the accepted request format, but there is no comparison rule
+    # for academic year in the current comparison engine.
+    "Academic Year": None,
+}
+REQUIRE_HTTPS = os.environ.get("FLASK_REQUIRE_HTTPS", "true").strip().lower() in {"1", "true", "yes"}
 
 
-def match_current_student_reference():
+def find_exact_reference_by_normalized_usn(usn):
+    """Return a unique projected reference record for an exact normalized USN.
+
+    The scan is deliberately bounded and uses only comparison fields. A full
+    scan beyond the bound cannot establish uniqueness, so it fails closed.
+    """
+    normalized_usn = normalize_usn(usn)
+    if not normalized_usn:
+        return {"status": "not_found"}
+
+    query = db.collection(REFERENCE_COLLECTION).select(
+        list(REFERENCE_MATCH_FIELD_PATHS)
+    ).limit(MAX_REFERENCE_CANDIDATES + 1)
+    scanned_records = [snapshot.to_dict() or {} for snapshot in query.stream()]
+    if len(scanned_records) > MAX_REFERENCE_CANDIDATES:
+        return {"status": "lookup_incomplete"}
+
+    matches = [
+        record for record in scanned_records
+        if normalize_usn(record.get("USN")) == normalized_usn
+    ]
+    if len(matches) > 1:
+        return {"status": "ambiguous"}
+    if not matches:
+        return {"status": "not_found"}
+    return {"status": "found", "record": matches[0]}
+
+
+def match_current_student_reference(authenticated_uid=None):
     """Match the logged-in student's registered record to reference records.
 
     The UID comes only from the verified Flask session established at login.
     The raw model result is returned for internal server-side use; this helper
     is not itself exposed as an HTTP endpoint.
     """
-    uid = session.get("uid")
+    # Explicit identity is supplied only by the extension API after Firebase
+    # token verification. Existing website calls continue using the session.
+    uid = authenticated_uid if authenticated_uid is not None else session.get("uid")
     if not uid:
         return {"status": "unauthenticated", "model_result": None}
 
@@ -104,38 +172,82 @@ def match_current_student_reference():
         "pucmarks": stored_student.get("pucmarks"),
         "college": stored_student.get("college"),
         "branch": stored_student.get("branch"),
-        "name": profile.get("name") or session.get("name"),
+        "name": profile.get("name") or (session.get("name") if authenticated_uid is None else None),
     }
     normalized_usn = normalize_usn(registered_student["usn"])
     if not normalized_usn:
-        return {"status": "registered_usn_missing", "model_result": None}
+        raw_usn = registered_student["usn"]
+        status = "registered_usn_missing" if raw_usn is None or (isinstance(raw_usn, str) and not raw_usn.strip()) else "registered_usn_invalid"
+        return {"status": status, "registered_record": registered_student, "model_result": None}
 
     reference_collection = db.collection(REFERENCE_COLLECTION)
     direct_snapshot = reference_collection.document(normalized_usn).get(
         field_paths=list(REFERENCE_MATCH_FIELD_PATHS)
     )
 
-    reference_records = []
-    retrieval_method = "bounded_scan"
-    if direct_snapshot.exists:
-        direct_record = direct_snapshot.to_dict() or {}
-        if normalize_usn(direct_record.get("USN")) == normalized_usn:
-            reference_records = [direct_record]
-            retrieval_method = "direct_usn_document"
+    direct_record = direct_snapshot.to_dict() or {} if direct_snapshot.exists else {}
+    direct_hit = (
+        direct_snapshot.exists
+        and normalize_usn(direct_record.get("USN")) == normalized_usn
+    )
+    retrieval_method = "direct_usn_document" if direct_hit else "bounded_scan"
 
-    candidate_set_truncated = False
-    if not reference_records:
-        query = reference_collection.select(list(REFERENCE_MATCH_FIELD_PATHS)).limit(
-            MAX_REFERENCE_CANDIDATES + 1
-        )
-        scanned_records = [snapshot.to_dict() or {} for snapshot in query.stream()]
-        candidate_set_truncated = len(scanned_records) > MAX_REFERENCE_CANDIDATES
-        reference_records = scanned_records[:MAX_REFERENCE_CANDIDATES]
+    # Even a direct document hit must be checked against a bounded projected
+    # scan: different document IDs may contain USNs that normalize identically.
+    query = reference_collection.select(list(REFERENCE_MATCH_FIELD_PATHS)).limit(
+        MAX_REFERENCE_CANDIDATES + 1
+    )
+    scanned_records = [snapshot.to_dict() or {} for snapshot in query.stream()]
+    candidate_set_truncated = len(scanned_records) > MAX_REFERENCE_CANDIDATES
+    bounded_records = scanned_records[:MAX_REFERENCE_CANDIDATES]
+
+    if candidate_set_truncated:
+        return {
+            "status": "uncertain",
+            "retrieval_method": retrieval_method,
+            "candidate_set_truncated": True,
+            "registered_record": registered_student,
+            "model_result": None,
+        }
+
+    exact_usn_records = [
+        record for record in bounded_records
+        if normalize_usn(record.get("USN")) == normalized_usn
+    ]
+    if len(exact_usn_records) > 1:
+        return {
+            "status": "ambiguous_match",
+            "retrieval_method": retrieval_method,
+            "candidate_set_truncated": False,
+            "registered_record": registered_student,
+            "model_result": {
+                "matching_method": "exact_usn",
+                "similarity_score": None,
+                "matched_candidate": None,
+                "ambiguity_status": {"status": "ambiguous", "is_ambiguous": True},
+            },
+        }
+
+    if direct_hit:
+        # The complete bounded scan must confirm the direct record as the sole
+        # normalized match before it is eligible for comparison.
+        if not exact_usn_records:
+            return {
+                "status": "uncertain",
+                "retrieval_method": retrieval_method,
+                "candidate_set_truncated": False,
+                "registered_record": registered_student,
+                "model_result": None,
+            }
+        reference_records = [direct_record]
+    else:
+        reference_records = bounded_records
 
     if not reference_records:
         return {
             "status": "reference_record_missing",
             "retrieval_method": retrieval_method,
+            "registered_record": registered_student,
             "model_result": None,
         }
 
@@ -164,7 +276,7 @@ def match_current_student_reference():
     }
 
 
-def compare_current_student_records(external_record=None):
+def compare_current_student_records(external_record=None, authenticated_uid=None):
     """Compare the current student's registered data to a resolved reference.
 
     Optional external data is accepted only as a mapping containing supported
@@ -178,6 +290,14 @@ def compare_current_student_records(external_record=None):
                 "matching_method": None,
                 "similarity_score": None,
                 "comparisons": {},
+                "registered_record_exists": False,
+                "reference_record_exists": False,
+                "reference_identity_verified": False,
+                "identity_verification_status": "incomplete",
+                "external_comparisons_blocked": False,
+                "discrepancies_detected": False,
+                "message": "Invalid external student record; no comparison could be performed.",
+                "overall_result": "No comparison could be performed",
             }
         if any(key not in EXTERNAL_STUDENT_FIELDS for key in external_record):
             return {
@@ -185,38 +305,122 @@ def compare_current_student_records(external_record=None):
                 "matching_method": None,
                 "similarity_score": None,
                 "comparisons": {},
+                "registered_record_exists": False,
+                "reference_record_exists": False,
+                "reference_identity_verified": False,
+                "identity_verification_status": "incomplete",
+                "external_comparisons_blocked": False,
+                "discrepancies_detected": False,
+                "message": "Invalid external student record; no comparison could be performed.",
+                "overall_result": "No comparison could be performed",
             }
         # Pass a new, allowlisted mapping rather than the caller's mapping.
         external_record = {key: external_record[key] for key in external_record}
 
-    match_result = match_current_student_reference()
+    match_result = match_current_student_reference(authenticated_uid)
     model_result = match_result.get("model_result") or {}
+    status = match_result.get("status", "unmatched")
     response = {
-        "match_status": match_result.get("status", "unmatched"),
+        "match_status": status,
         "matching_method": model_result.get("matching_method"),
         "similarity_score": model_result.get("similarity_score"),
+        "registered_record_exists": status != "student_record_missing" and status != "unauthenticated",
+        "reference_record_exists": False,
+        "reference_identity_verified": False,
+        "identity_verification_status": "incomplete",
+        "external_comparisons_blocked": False,
         "comparisons": {},
+        "discrepancies_detected": False,
+        "message": None,
     }
-
-    if response["match_status"] not in {"exact_match", "fuzzy_match"}:
-        return response
 
     registered_record = match_result.get("registered_record")
     matched_reference = model_result.get("matched_candidate")
-    if not isinstance(registered_record, Mapping) or not isinstance(matched_reference, Mapping):
-        response["match_status"] = "uncertain"
-        return response
+    registered_exists = status != "student_record_missing" and isinstance(registered_record, Mapping)
+    response["registered_record_exists"] = registered_exists
 
-    if external_record is None:
-        response["comparisons"] = {
-            "registered_vs_reference": compare_registered_to_reference(
-                registered_record, matched_reference
+    if status in {"exact_match", "fuzzy_match"} and not isinstance(matched_reference, Mapping):
+        response["match_status"] = "uncertain"
+        response["message"] = "Reference identity could not be safely resolved."
+
+    if registered_exists and status in {"exact_match", "fuzzy_match"} and isinstance(matched_reference, Mapping):
+        response["reference_record_exists"] = True
+        response["reference_identity_verified"] = True
+        response["identity_verification_status"] = "verified"
+    elif status in {"student_record_missing", "registered_usn_missing", "registered_usn_invalid"} and external_record is not None:
+        # With no registered identity, use only the external normalized USN for
+        # an exact document lookup. Never use fuzzy matching to select a student.
+        external_usn = normalize_usn(next(
+            (external_record[key] for key in ("usn", "USN") if key in external_record), None
+        ))
+        if external_usn:
+            snapshot = db.collection(REFERENCE_COLLECTION).document(external_usn).get(
+                field_paths=list(REFERENCE_MATCH_FIELD_PATHS)
             )
-        }
+            candidate = snapshot.to_dict() or {} if snapshot.exists else {}
+            if snapshot.exists and normalize_usn(candidate.get("USN")) == external_usn:
+                matched_reference = candidate
+                response["reference_record_exists"] = True
+
+    safe_to_compare_reference = isinstance(matched_reference, Mapping)
+    if registered_exists and external_record is not None:
+        registered_usn = normalize_usn(registered_record.get("usn"))
+        external_usn = normalize_usn(next(
+            (external_record[key] for key in ("usn", "USN") if key in external_record), None
+        ))
+        if not registered_usn or not external_usn or registered_usn != external_usn:
+            response["message"] = "External identity could not be safely matched to the registered student."
+            response["external_comparisons_blocked"] = True
+            safe_external = False
+        else:
+            safe_external = True
     else:
-        response["comparisons"] = compare_three_sources(
-            registered_record, matched_reference, external_record
-        )
+        safe_external = external_record is not None
+
+    if registered_exists and safe_to_compare_reference and status not in {"registered_usn_missing", "registered_usn_invalid"}:
+        if external_record is not None and safe_external:
+            response["comparisons"] = compare_three_sources(registered_record, matched_reference, external_record)
+        else:
+            response["comparisons"]["registered_vs_reference"] = compare_registered_to_reference(registered_record, matched_reference)
+    elif not registered_exists and safe_to_compare_reference and external_record is not None and safe_external:
+        response["comparisons"]["external_vs_reference"] = compare_external_to_reference(external_record, matched_reference)
+    elif registered_exists and status in {"registered_usn_missing", "registered_usn_invalid"} and safe_to_compare_reference and external_record is not None:
+        response["comparisons"]["external_vs_reference"] = compare_external_to_reference(external_record, matched_reference)
+    elif registered_exists and external_record is not None and safe_external:
+        # Reference is unavailable, but registered and external can still be compared.
+        response["comparisons"]["registered_vs_external"] = compare_registered_to_external(registered_record, external_record)
+
+    identity_unverified = (
+        status in {"registered_usn_missing", "registered_usn_invalid"}
+        or response["external_comparisons_blocked"]
+        or (status == "student_record_missing" and external_record is not None)
+        or status in {"ambiguous_match", "uncertain", "unmatched"}
+    )
+    if status in {"registered_usn_missing", "registered_usn_invalid"}:
+        response["message"] = "Registered record exists, but its USN is missing or invalid; authenticated identity could not be safely verified."
+    elif response["external_comparisons_blocked"]:
+        response["message"] = "External identity could not be safely matched to the registered student; external comparisons were blocked."
+    elif not registered_exists and status != "student_record_missing":
+        response["message"] = response["message"] or "Student identity is unavailable."
+    elif not registered_exists:
+        response["message"] = "Student is not registered."
+    elif not response["reference_record_exists"]:
+        response["message"] = "Reference record is unavailable."
+    response["discrepancies_detected"] = any(
+        pair["summary"]["mismatches"] > 0 for pair in response["comparisons"].values()
+    )
+    if response["comparisons"] and identity_unverified and response["discrepancies_detected"]:
+        response["overall_result"] = "Discrepancies detected in available comparisons; identity could not be fully verified."
+    elif response["comparisons"] and identity_unverified:
+        response["overall_result"] = "Identity could not be safely verified; only partial comparisons were possible."
+    elif response["discrepancies_detected"]:
+        response["overall_result"] = "Discrepancies detected"
+    elif response["comparisons"]:
+        response["overall_result"] = "No discrepancies detected in the available comparisons"
+    else:
+        response["overall_result"] = "No comparison could be performed"
+        if not identity_unverified and not (response.get("message") and "identity" in response["message"].casefold()):
+            response["message"] = "No comparison could be performed because the required records were unavailable."
     return response
 
 print("Firebase Admin SDK initialized successfully")
@@ -479,4 +683,179 @@ def get_my_details():
         return jsonify({
             "status": "error",
             "message": "Unable to retrieve your details."
+        }), 500
+
+
+@app.route("/api/extension/compare", methods=["POST"])
+def extension_compare():
+    """Compare AcademicPortal values for the Firebase-authenticated user."""
+    if REQUIRE_HTTPS and not request.is_secure and not app.testing:
+        return jsonify({
+            "status": "error",
+            "message": "HTTPS is required for this endpoint.",
+        }), 400
+
+    # Keep this endpoint's payload bounded without changing limits for other
+    # website routes. Extension requests include only a small student record.
+    request.max_content_length = MAX_EXTENSION_REQUEST_BYTES
+    if request.content_length is not None and request.content_length > MAX_EXTENSION_REQUEST_BYTES:
+        return jsonify({
+            "status": "error",
+            "message": "Request body is too large.",
+        }), 413
+
+    authorization = request.headers.get("Authorization", "")
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].casefold() != "bearer" or not parts[1]:
+        return jsonify({
+            "status": "error",
+            "message": "A valid Firebase Bearer token is required.",
+        }), 401
+
+    try:
+        decoded_token = auth.verify_id_token(parts[1], check_revoked=True)
+        uid = decoded_token.get("uid") if isinstance(decoded_token, Mapping) else None
+        if not isinstance(uid, str) or not uid.strip():
+            return jsonify({
+                "status": "error",
+                "message": "Authentication failed. Please log in again.",
+            }), 401
+    except Exception:
+        # Verification failures include invalid, expired, revoked, and
+        # malformed Firebase ID tokens. Do not return verifier details.
+        return jsonify({
+            "status": "error",
+            "message": "Authentication failed. Please log in again.",
+        }), 401
+
+    try:
+        data = request.get_json(silent=True)
+    except RequestEntityTooLarge:
+        return jsonify({
+            "status": "error",
+            "message": "Request body is too large.",
+        }), 413
+    if not isinstance(data, dict) or set(data) != {"external_record"}:
+        return jsonify({
+            "status": "error",
+            "message": "Request must contain only an external_record object.",
+        }), 400
+
+    supplied_record = data.get("external_record")
+    if not isinstance(supplied_record, dict) or not supplied_record:
+        return jsonify({
+            "status": "error",
+            "message": "external_record must be a non-empty object.",
+        }), 400
+
+    if any(key not in EXTENSION_FIELD_MAP for key in supplied_record):
+        return jsonify({
+            "status": "error",
+            "message": "external_record contains unsupported fields.",
+        }), 400
+    canonical_fields = [
+        EXTENSION_FIELD_MAP[key]
+        for key in supplied_record
+        if EXTENSION_FIELD_MAP[key] is not None
+    ]
+    if len(canonical_fields) != len(set(canonical_fields)):
+        return jsonify({
+            "status": "error",
+            "message": "external_record contains conflicting field aliases.",
+        }), 400
+    if any(isinstance(value, (dict, list, bool)) for value in supplied_record.values()):
+        return jsonify({
+            "status": "error",
+            "message": "Student field values must be strings, numbers, or null.",
+        }), 400
+
+    # Convert extension labels to the aliases understood by the existing
+    # comparison layer. Academic Year is accepted but intentionally omitted.
+    external_record = {
+        EXTENSION_FIELD_MAP[key]: value
+        for key, value in supplied_record.items()
+        if EXTENSION_FIELD_MAP[key] is not None
+    }
+    if not external_record:
+        return jsonify({
+            "status": "error",
+            "message": "external_record must include at least one comparable student field.",
+        }), 400
+
+    extracted_usn = normalize_usn(external_record.get("USN"))
+    if not extracted_usn:
+        return jsonify({
+            "status": "error",
+            "message": "external_record must contain a valid USN.",
+        }), 400
+
+    try:
+        # Read only the authenticated user's own USN to choose the mode. Never
+        # query a private record using the submitted/extracted USN.
+        own_record = db.collection("student_records").document(uid).get(
+            field_paths=["usn"]
+        )
+        own_data = own_record.to_dict() or {} if own_record.exists else {}
+        registered_usn = normalize_usn(own_data.get("usn"))
+
+        if registered_usn and registered_usn == extracted_usn:
+            result = compare_current_student_records(
+                external_record,
+                authenticated_uid=uid,
+            )
+            if result.get("match_status") == "student_record_missing":
+                return jsonify({
+                    "status": "error",
+                    "message": "No registered student record found for this account.",
+                }), 404
+            result["mode"] = "personal"
+            result["relationship_verification_status"] = "verified"
+            return jsonify({"status": "success", "comparison": result}), 200
+
+        lookup = find_exact_reference_by_normalized_usn(extracted_usn)
+        reference_status = lookup["status"]
+        if reference_status == "found":
+            external_comparison = compare_external_to_reference(
+                external_record, lookup["record"]
+            )
+            comparisons = {"external_vs_reference": external_comparison}
+            discrepancy = external_comparison["summary"]["mismatches"] > 0
+            message = "Comparison with the exact reference record completed."
+            overall_result = (
+                "Discrepancies detected" if discrepancy
+                else "No discrepancies detected in the available comparison"
+            )
+        else:
+            comparisons = {}
+            discrepancy = False
+            if reference_status == "ambiguous":
+                message = "Multiple reference records match this normalized USN; no comparison was performed."
+                overall_result = "Reference record is ambiguous"
+            elif reference_status == "lookup_incomplete":
+                message = "A unique reference record could not be established; no comparison was performed."
+                overall_result = "Reference lookup could not be completed safely"
+            else:
+                reference_status = "unavailable"
+                message = "No exact reference record is available for this USN."
+                overall_result = "Reference record is unavailable"
+
+        is_other_student = bool(own_record.exists and registered_usn)
+        mode = "other_student" if is_other_student else "reference_only"
+        relationship_status = "different_student" if is_other_student else "unverified"
+        result = {
+            "mode": mode,
+            "relationship_verification_status": relationship_status,
+            "reference_status": reference_status,
+            "reference_available": reference_status == "found",
+            "comparisons": comparisons,
+            "discrepancies_detected": discrepancy,
+            "message": message,
+            "overall_result": overall_result,
+        }
+        return jsonify({"status": "success", "comparison": result}), 200
+    except Exception:
+        app.logger.exception("Extension discrepancy comparison failed")
+        return jsonify({
+            "status": "error",
+            "message": "Unable to complete the comparison. Please try again.",
         }), 500
